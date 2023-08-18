@@ -1,11 +1,12 @@
-import { Review } from '@/src/repository/review-repository/review-entity'
-import { ReviewRepository } from '@/src/repository/review-repository/review-repository'
-import axios from 'axios'
 import { CommonResponse, generateServiceToken, validate } from 'common-abstract-fares-system'
-import mongoose from 'mongoose'
 import { ProductEntity, TypeProduct } from '../product-entity'
+import { Review, ReviewVariantType } from '@/src/repository/review-repository/review-entity'
 import { ReviewReqValidator, ReviewRequest, ReviewRequestError } from '../review-req'
+
+import { ReviewRepository } from '@/src/repository/review-repository/review-repository'
 import { Room } from '../room-entity'
+import axios from 'axios'
+import mongoose from 'mongoose'
 
 /*
       @ericchen:
@@ -38,6 +39,8 @@ export const addNewReviewFunction = async (
       name: '',
       score: '',
       reviewer: '',
+      phone: '',
+      comment: '',
     },
     status: 400,
   }
@@ -63,9 +66,10 @@ export const addNewReviewFunction = async (
   const variantList = await Promise.all(
     req.variantId.map(async (item) => {
       if (
-        item.length > 0 &&
+        item.id.length > 0 &&
         result.result.typeProduct === TypeProduct.SHIP &&
-        mongoose.isValidObjectId(item)
+        mongoose.isValidObjectId(item) &&
+        ReviewVariantType.ROOM === item.type
       ) {
         const callInternalRoom = await axios.get(
           `${process.env.ROOM_SERVICE_URL}/api/service/find-room?id=${item}&ServiceToken=${internalToken}`
@@ -77,7 +81,10 @@ export const addNewReviewFunction = async (
           }
         }
       }
-      return ''
+      return {
+        id: '',
+        type: ReviewVariantType.ROOM,
+      }
     })
   )
   const entity: Review = {
@@ -85,8 +92,13 @@ export const addNewReviewFunction = async (
     ...req,
     reviewer: new mongoose.Types.ObjectId(),
     variantId: variantList
-      .filter((item) => item.length > 0)
-      .map((item) => new mongoose.Types.ObjectId(item)),
+      .filter((item) => item.id.length > 0)
+      .map((item) => {
+        return {
+          id: new mongoose.Types.ObjectId(item.id),
+          type: item.type,
+        }
+      }),
     productId: new mongoose.Types.ObjectId(req.productId),
   }
 
