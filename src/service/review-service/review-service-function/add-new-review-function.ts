@@ -1,12 +1,12 @@
-import { CommonResponse, generateServiceToken, validate } from 'common-abstract-fares-system'
-import { ProductEntity, TypeProduct } from '../product-entity'
 import { Review, ReviewVariantType } from '@/src/repository/review-repository/review-entity'
+import { CommonResponse, generateServiceToken, validate } from 'common-abstract-fares-system'
 import { ReviewReqValidator, ReviewRequest, ReviewRequestError } from '../review-req'
 
 import { ReviewRepository } from '@/src/repository/review-repository/review-repository'
-import { Room } from '../room-entity'
 import axios from 'axios'
 import mongoose from 'mongoose'
+import { TypeProduct } from '../product-entity'
+import { Room } from '../room-entity'
 
 /*
       @ericchen:
@@ -62,7 +62,15 @@ export const addNewReviewFunction = async (
       result: '',
       success: false,
     }
-  const result = callInternalProduct.data as CommonResponse<ProductEntity>
+  const result = callInternalProduct.data as CommonResponse<any>
+  if (!result.success) {
+    return {
+      status: 400,
+      message: result.message,
+      result: '',
+      success: false,
+    }
+  }
   const variantList = await Promise.all(
     req.variantId.map(async (item) => {
       if (
@@ -101,7 +109,28 @@ export const addNewReviewFunction = async (
       }),
     productId: new mongoose.Types.ObjectId(req.productId),
   }
-
+  const callUpdateProduct = await axios.get(
+    `${process.env.PRODUCT_SERVICE_URL}/api/service/update-score?id=${
+      req.productId
+    }&ServiceToken=${internalToken}&score=${result.result.scoreReview + req.score}&num=${
+      result.result.numReviews + 1
+    }`
+  )
+  if (callUpdateProduct.status !== 200)
+    return {
+      status: 500,
+      message: 'server error',
+      result: '',
+      success: false,
+    }
+  if (!callUpdateProduct.data.success) {
+    return {
+      status: 400,
+      message: callUpdateProduct.data.message,
+      result: '',
+      success: false,
+    }
+  }
   const { error } = await repository.insert([{ ...entity }])
   if (error) {
     return {
